@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AI Health Diagnosis Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #e0f7fa, #f1f8e9);
+      margin: 0;
+      padding: 0;
+    }
+    .chat {
+      max-width: 800px;
+      margin: 50px auto;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    h2 {
+      background: #0b64ff;
+      color: #fff;
+      margin: 0;
+      padding: 18px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 20px;
+      letter-spacing: 0.5px;
+    }
+    .messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background: #f9fafa;
+    }
+    .msg {
+      margin: 12px 0;
+      display: flex;
+    }
+    .bot {
+      justify-content: flex-start;
+    }
+    .bot span {
+      background: #e3f2fd;
+      color: #0b64ff;
+      border-radius: 16px 16px 16px 4px;
+      padding: 12px 16px;
+      max-width: 70%;
+      font-size: 15px;
+      line-height: 1.4;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .user {
+      justify-content: flex-end;
+    }
+    .user span {
+      background: #0b64ff;
+      color: white;
+      border-radius: 16px 16px 4px 16px;
+      padding: 12px 16px;
+      max-width: 70%;
+      font-size: 15px;
+      line-height: 1.4;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .input {
+      display: flex;
+      padding: 14px;
+      border-top: 1px solid #eee;
+      background: #fff;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      outline: none;
+      font-size: 15px;
+      transition: border 0.2s;
+    }
+    input[type="text"]:focus {
+      border-color: #0b64ff;
+      box-shadow: 0 0 4px rgba(11,100,255,0.3);
+    }
+    button {
+      padding: 12px 18px;
+      margin-left: 10px;
+      border-radius: 10px;
+      border: none;
+      background: #0b64ff;
+      color: white;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #084ad1;
+    }
+    .small {
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+      margin: 12px;
+    }
+    .risk {
+      font-weight: bold;
+      color: #d32f2f;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat">
+    <h2>🩺 AI Health Diagnosis Chatbot</h2>
+    <div class="messages" id="messages"></div>
+    <div class="input">
+      <input id="userInput" placeholder="Type your message (e.g., 'diabetes' or 'age 45')" />
+      <button id="sendBtn">Send</button>
+    </div>
+    <div class="small">⚠️ This is a demo using synthetic models. Not medical advice.</div>
+  </div>
+
+<script>
+const messagesEl = document.getElementById('messages');
+const inputEl = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+let history = [];
+
+function appendMessage(sender, text) {
+  history.push({sender, text});
+  const d = document.createElement('div');
+  d.className = 'msg ' + (sender==='bot' ? 'bot' : 'user');
+  const span = document.createElement('span');
+  span.innerText = text;
+  d.appendChild(span);
+  messagesEl.appendChild(d);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+async function sendToChat() {
+  const userText = inputEl.value.trim();
+  if (!userText) return;
+  appendMessage('user', userText);
+  inputEl.value = '';
+  const resp = await fetch('/chat', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({history})
+  });
+  const data = await resp.json();
+  if (data.reply) {
+    appendMessage(data.reply.sender, data.reply.text);
+    if (data.action === 'predict') {
+      const pr = await fetch('/predict', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({model: data.model, inputs: data.inputs})
+      });
+      const pres = await pr.json();
+      if (pres.error) {
+        appendMessage('bot', 'Prediction error: ' + pres.error);
+      } else {
+        appendMessage('bot', 'Prediction result: Risk=' + (pres.risk*100).toFixed(1) + '%; Advice: ' + pres.advice.join(' '));
+      }
+    }
+  } else {
+    appendMessage('bot', 'Sorry, no reply from server.');
+  }
+}
+
+sendBtn.addEventListener('click', sendToChat);
+inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendToChat(); });
+
+appendMessage('bot', "👋 Hello! Do you want a Diabetes or Heart Disease check today? Reply 'diabetes' or 'heart'.");
+</script>
+</body>
+</html>
